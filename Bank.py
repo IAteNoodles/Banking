@@ -2,6 +2,8 @@ from json import dump as json_dump
 import json
 from mysql import connector 
 import hashlib
+import sys
+from os.path import exists as file_exists
 class Account:
     def __init__(self):
         pass
@@ -58,11 +60,10 @@ class Admin:
         columns = cursor.fetchall()
         self.__PERMISSIONS = dict()
         for name in columns:
+            # Fetches the permissions from the database and stores it.
             if name[0] == "ID" or name[0] == "NAME": continue
             cursor.execute("SELECT {name} FROM ADMIN WHERE ID = '{ID}'".format(name=name[0],ID=self.__ID))
             self.__PERMISSIONS[name[0]] = cursor.fetchone()[0]
-        print("Permissions: {}".format(json.dumps(self.__PERMISSIONS, indent=2).strip("{}").replace('"',"")))
-        print(self.__COLUMNS)
         # ----------------------------------------------------Permissions for ROOT-------------------------------------------------
         # {ROOT: True,
         # CREATE_ADMIN: True,
@@ -93,27 +94,47 @@ class Admin:
         """
         cursor = self.__CONNECTION.cursor()
         # Default permissions
-        self.__PERMISSIONS = {"ROOT": 0,
-                              "CREATE_ADMIN": 0,
-                              "CHECK_TRANSACTION": 1,
-                              "CHECK_APPLICATION": 1,
-                              "MODIFY_APPLICATION": 1,
-                              "DELETE_ADMIN": 0,
-                              "DELETE_USER": 0,
-                              "MODIFY_USER_DATA": 1,
-                              "MODIFY_ADMIN": 0,
-                              "DELETE_APPLICATION": 1}
+        __PERMISSIONS = [0, 0, 1, 1, 1, 0, 1, 1, 0, 1]
+        """{"ROOT": 0,
+            "CREATE_ADMIN": 0,
+            "CHECK_TRANSACTION": 1,
+            "CHECK_APPLICATION": 1,
+            "MODIFY_APPLICATION": 1,
+            "DELETE_ADMIN": 0,
+            "DELETE_USER": 0,
+            "MODIFY_USER_DATA": 1,
+            "MODIFY_ADMIN": 0,
+            "DELETE_APPLICATION": 1}"""
         print("Please fill the form carefully:")
         name = input("Admin name: ")
         password = input("Admin password: ")
         if input("Do you want to create a new admin account with the default permissions? (Y/N): ") == "Y":
             cursor.execute("SELECT UUID()")
-            uuid = cursor.fetchone()
-            sql = """INSERT INTO ADMIN{values}
-                    VALUES (uuid,{passwd}, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """.format(name=name,passwd=password,values=self.__COLUMNS)
-            cursor.execute(sql,self.__PERMISSIONS.values())
-            print()
+            uuid = cursor.fetchone()[0]
+            # Don't edit this line. Take some time and carefully read it and understand what this does.
+            sql="INSERT INTO ADMIN {columns} VALUES ('{UUID}','{name}',%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(columns=str(self.__COLUMNS).replace("'",""),UUID=uuid,name=name)
+            # Fires up an request to create a new admin account with the default permissions and the given name.
+            cursor.execute(sql,__PERMISSIONS)
+            self.__CONNECTION.commit()
+            print("ID for {user} is {uuid}".format(user=name,uuid=uuid))
+        else:
+            print("Permissions are arranged in the following order: ")
+            print("'ROOT', 'CREATE_ADMIN', 'CHECK_TRANSACTION', 'CHECK_APPLICATION', 'MODIFY_APPLICATION', 'DELETE_ADMIN', 'DELETE_USER', 'MODIFY_USER_DATA', 'MODIFY_ADMIN', 'DELETE_APPLICATION'")
+            sys.stderr.write("Note: It is advised to use a json file to manage permissions, instead of entering the permissions to avoid any errors.")
+            print("Enter the path to the json file or the permission_values as list; 0 -> False, 1 -> True.")
+            data = eval(input(""))
+            # A temporary dictionary to keep track of the permissions.
+            __PERMISSIONS_TEST = dict()
+            try:
+                with open(data) as file:
+                    __PERMISSIONS_TEST = json.load(file)
+                    print("Permissions: {permissions}".format(__PERMISSIONS))
+            except TypeError:
+                print("Permissions:")
+                for permission_name,permission in enumerate(self.__COLUMNS[2:],data):
+                    __PERMISSIONS_TEST[permission_name] = permission
+                print(__PERMISSIONS_TEST)
+            
     def remove_admin(self):
         pass
 
