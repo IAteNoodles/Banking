@@ -1,14 +1,48 @@
 from json import dump as json_dump
 import json
 from mysql import connector 
-import hashlib
+from Crypto.Hash import keccak
 import sys
 from os.path import exists as file_exists
 class Account:
-    def __init__(self):
-        pass
+    def __init__(self, *data):
+        self.__ID, self.__RATE, self.__MINIMUM_BALANCE = data        
+        self.__BALANCE = 0
+
+
+    def get_balance(self):
+        return self.BALANCE
+
+    def withdraw(self, amount):
+        try:
+            if self.BALANCE-amount < self.__MINIMUM_BALANCE:
+                return False
+        except NameError:      
+            self.BALANCE -= amount
+            return True
+            
+    def deposit(self, amount):
+        self.BALANCE += amount
+        return True
+
+class Savings(Account):
+    def __init__(self, id: str,*data):
+        super().__init__(id, 0.04, None)
+        del self._Account__MINIMUM_BALANCE
+        self.__Times, self.__Limit = data
+        print(self.__dict__)
+    
+class Current(Account):
+    def __init__(self, id: str):
+        super().__init__(id, None, 100000)
+        del self._Account__RATE
+        print(self.__dict__)
+    
 class User:
-    def __init__(self):
+    def __init__(self, uuid: str, passwd: str):
+        self.passwd = passwd
+        self.id = uuid
+        self.__VERIFIED = False
         pass
 class Admin:
     """A class that encapsulates the admin type user. 
@@ -39,9 +73,11 @@ class Admin:
                           'MODIFY_USER_DATA',
                           'MODIFY_ADMIN',
                           'DELETE_APPLICATION')
+        hash = keccak.new(digest_bits = 512)
         if ID == "ROOT" or ID == "PYTHON_ADMIN":
             self.__ID = "841a0cad-4f9a-11ec-b123-90489a3f6f77" if ID == "ROOT" else "cec4d6d5-4f9a-11ec-b123-90489a3f6f77"
-            self.__PASSWD = hashlib.sha256(passwd.encode()).hexdigest() # Hashes the password without salt
+            hash.update(passwd.encode())
+            self.__PASSWD = hash.hexdigest() # Hashes the password without salt
         else:
             self.__PASSWD = passwd
             self.__ID = ID
@@ -55,15 +91,12 @@ class Admin:
         else:
             print("Failed to log in")
             return
-        # Gets all the columns name from the Table.
-        cursor.execute("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME=N'ADMIN'")
-        columns = cursor.fetchall()
         self.__PERMISSIONS = dict()
-        for name in columns:
+        for name in self.__COLUMNS:
             # Fetches the permissions from the database and stores it.
             if name[0] == "ID" or name[0] == "NAME": continue
-            cursor.execute("SELECT {name} FROM ADMIN WHERE ID = '{ID}'".format(name=name[0],ID=self.__ID))
-            self.__PERMISSIONS[name[0]] = cursor.fetchone()[0]
+            cursor.execute("SELECT {name} FROM ADMIN WHERE ID = '{ID}'".format(name=name,ID=self.__ID))
+            self.__PERMISSIONS[name] = cursor.fetchone()[0]
         # ----------------------------------------------------Permissions for ROOT-------------------------------------------------
         # {ROOT: True,
         # CREATE_ADMIN: True,
@@ -94,7 +127,7 @@ class Admin:
         """
         cursor = self.__CONNECTION.cursor()
         # Default permissions
-        __PERMISSIONS = [0, 0, 1, 1, 1, 0, 1, 1, 0, 1]
+        PERMISSION = [0, 0, 1, 1, 1, 0, 1, 1, 0, 1] # Default Permissions.
         """{"ROOT": 0,
             "CREATE_ADMIN": 0,
             "CHECK_TRANSACTION": 1,
@@ -108,34 +141,41 @@ class Admin:
         print("Please fill the form carefully:")
         name = input("Admin name: ")
         password = input("Admin password: ")
-        if input("Do you want to create a new admin account with the default permissions? (Y/N): ") == "Y":
-            cursor.execute("SELECT UUID()")
-            uuid = cursor.fetchone()[0]
-            # Don't edit this line. Take some time and carefully read it and understand what this does.
-            sql="INSERT INTO ADMIN {columns} VALUES ('{UUID}','{name}',%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(columns=str(self.__COLUMNS).replace("'",""),UUID=uuid,name=name)
-            # Fires up an request to create a new admin account with the default permissions and the given name.
-            cursor.execute(sql,__PERMISSIONS)
-            self.__CONNECTION.commit()
-            print("ID for {user} is {uuid}".format(user=name,uuid=uuid))
-        else:
+        if input("Do you want to create a new admin account with the default permissions? (Y/N): ") == "N":
             print("Permissions are arranged in the following order: ")
             print("'ROOT', 'CREATE_ADMIN', 'CHECK_TRANSACTION', 'CHECK_APPLICATION', 'MODIFY_APPLICATION', 'DELETE_ADMIN', 'DELETE_USER', 'MODIFY_USER_DATA', 'MODIFY_ADMIN', 'DELETE_APPLICATION'")
             sys.stderr.write("Note: It is advised to use a json file to manage permissions, instead of entering the permissions to avoid any errors.")
             print("Enter the path to the json file or the permission_values as list; 0 -> False, 1 -> True.")
             data = eval(input(""))
             # A temporary dictionary to keep track of the permissions.
-            __PERMISSIONS_TEST = dict()
             try:
                 with open(data) as file:
                     __PERMISSIONS_TEST = json.load(file)
                     print("Permissions: {permissions}".format(__PERMISSIONS))
             except TypeError:
                 print("Permissions:")
-                for permission_name,permission in enumerate(self.__COLUMNS[2:],data):
-                    __PERMISSIONS_TEST[permission_name] = permission
-                print(__PERMISSIONS_TEST)
-            
-    def remove_admin(self):
+                PERMISSION.clear()
+                PERMISSIONS__MAIN = list(self.__PERMISSIONS.values())[2::]
+                for permission_name,permission,__PERMISSION in zip(self.__COLUMNS[2::],data,PERMISSIONS__MAIN):
+                    if permission > __PERMISSION:
+                        sys.stderr.write("You do not have permission to give access to {permission}".format(permission=permission_name))
+                        return
+                    PERMISSION.append(permission)
+        cursor.execute("SELECT UUID()")
+        uuid = cursor.fetchone()[0]
+        hash = keccak.new(digest_bits = 512)
+        hash.update(password.encode())
+        hashed_passwd = hash.hexdigest()
+        cursor.execute("INSERT INTO ADMIN_LOGIN (ID,HASH) VALUES (%s,%s)",(uuid,hashed_passwd))
+        self.__CONNECTION.commit()
+        # Don't edit this line. Take some time and carefully read it and understand what this does.
+        sql="INSERT INTO ADMIN {columns} VALUES ('{UUID}','{name}',%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(columns=str(self.__COLUMNS).replace("'",""),UUID=uuid,name=name)
+        # Fires up an request to create a new admin account with the default permissions and the given name.
+        cursor.execute(sql,PERMISSION)
+        self.__CONNECTION.commit()
+        print("ID for {user} is {uuid}".format(user=name,uuid=uuid))
+    def remove_admin(self, *temp):
+        
         pass
 
     def check_status(self):
@@ -150,4 +190,5 @@ class Admin:
     def remove_user(self, ban = False):
         pass
     
-Admin(input("Enter ID: "),input("Enter password for admin account (ROOT): ")).add_admin()
+#Admin(input("Enter ID: "),input("Enter password for admin account (ROOT): ")).add_admin()
+Savings("123",52,60)
