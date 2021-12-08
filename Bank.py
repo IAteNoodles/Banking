@@ -30,7 +30,8 @@ class Savings(Account):
         super().__init__(id, 0.04, None)
         del self._Account__MINIMUM_BALANCE
         self.__Times, self.__Limit = data
-        print(self.__dict__)
+        
+    
     
 class Current(Account):
     def __init__(self, id: str):
@@ -175,12 +176,27 @@ class Admin:
         self.__CONNECTION.commit()
         print("ID for {user} is {uuid}".format(user=name,uuid=uuid))
     def remove_admin(self, *temp):
+        admin_id,reason = temp
         
-        pass
-
-    def check_status(self):
-        pass
-    
+    def check_status(self,application_id):
+        cursor = self.__CONNECTION.cursor()
+        cursor.execute("SELECT * FROM APPLICATION WHERE APPLICATION_ID= '%s'"%application_id)
+        data = cursor.fetchone()[1::]
+        print("Date of creation: ", data[0])
+        print("Date of last modification: ", data[1])
+        print("Status: ", "Pending" if data[2] is None else "Rejected" if data[2]==0 else "Verified")
+        print("Remarks: ", data[3])
+        action = input("Action: ")
+        if action == "delete":
+            cursor.execute("DELETE FROM APPLICATION WHERE APPLICATION_ID = '%s'"%application_id)
+        elif action == "update":
+            cursor.execute("UPDATE APPLICATION SET VERIFIED = %r WHERE APPLICATION_ID = '%s'"%((bool(input("Accept(1)/Reject(0)"))),application_id))
+        elif action == "remarks":
+            cursor.execute("UPDATE APPLICATION SET REMARKS = '%s' WHERE APPLICATION_ID = '%s'"%(input("Remarks: "),application_id))
+        else:
+            print("Unknown action")
+        self.__CONNECTION.commit()
+        
     def applications(self):
         pass
     
@@ -188,7 +204,8 @@ class Admin:
         pass
     
     def remove_user(self, ban = False):
+        
         pass
     
-#Admin(input("Enter ID: "),input("Enter password for admin account (ROOT): ")).add_admin()
-Savings("123",52,60)
+Admin(input("Enter ID: "),input("Enter password for admin account (ROOT): ")).check_status("A")
+#Savings("123",52,60)
