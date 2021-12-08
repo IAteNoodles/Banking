@@ -178,7 +178,11 @@ class Admin:
     def remove_admin(self, *temp):
         admin_id,reason = temp
         
-    def check_status(self,application_id):
+    def check_status(self,application_id)-> None:
+        """Checks the status of application of the given id
+        Args:
+            application_id(str): Application ID of the application.
+        """
         cursor = self.__CONNECTION.cursor()
         cursor.execute("SELECT * FROM APPLICATION WHERE APPLICATION_ID= '%s'"%application_id)
         data = cursor.fetchone()[1::]
