@@ -45,6 +45,27 @@ class User:
         self.id = uuid
         self.__VERIFIED = False
         pass
+
+    def login(self, account_id):
+        pass
+
+    def logout(self):
+        pass
+
+    def forgetpasswd(self):
+        pass
+
+    def get_accounts(self):
+        pass
+
+    def freeze_account(self):
+        pass
+
+    def change_password(self, new_password):
+        pass
+
+
+
 class Admin:
     """A class that encapsulates the admin type user. 
     Provides root level modification to the database, and other admin features."""
@@ -80,24 +101,26 @@ class Admin:
             hash.update(passwd.encode())
             self.__PASSWD = hash.hexdigest() # Hashes the password without salt
         else:
-            self.__PASSWD = passwd
+            hash.update(passwd.encode())
+            self.__PASSWD = hash.hexdigest() # Hashes the password without salt
             self.__ID = ID
         self.__CONNECTION = connector.connect(user="python",host=host,passwd="Python",database="Bank")
-        cursor = self.__CONNECTION.cursor()
-        cursor.execute(r"select * from ADMIN_LOGIN WHERE ID = '%s'"%self.__ID)
-        hashed_passwd = cursor.fetchone()[1]
+        self.cursor = self.__CONNECTION.cursor()
+        self.cursor.execute(r"select * from ADMIN_LOGIN WHERE ID = '%s'"%self.__ID)
+        hashed_passwd = self.cursor.fetchone()[1]
         if hashed_passwd == self.__PASSWD:
             print("Successfully logged in!!!")
             self.__VERIFIED = True
         else:
             print("Failed to log in")
             return
-        self.__PERMISSIONS = dict()
+        self.__DETAILS = dict()
         for name in self.__COLUMNS:
             # Fetches the permissions from the database and stores it.
             if name[0] == "ID" or name[0] == "NAME": continue
-            cursor.execute("SELECT {name} FROM ADMIN WHERE ID = '{ID}'".format(name=name,ID=self.__ID))
-            self.__PERMISSIONS[name] = cursor.fetchone()[0]
+            self.cursor.execute("SELECT {name} FROM ADMIN WHERE ID = '{ID}'".format(name=name,ID=self.__ID))
+            self.__DETAILS[name] = self.cursor.fetchone()[0]
+        self.__PERMISSIONS = list(self.__DETAILS.values())[2::]
         # ----------------------------------------------------Permissions for ROOT-------------------------------------------------
         # {ROOT: True,
         # CREATE_ADMIN: True,
@@ -114,7 +137,7 @@ class Admin:
     def change_config(self, **__CONFIG)-> bool:
         pass
     
-    def add_admin(self, **__PERMISSIONS)-> None:
+    def add_admin(self, *__PERMISSIONS)-> bool:
         """
         Adds an admin account to the database.
 
@@ -123,10 +146,10 @@ class Admin:
         To create a new admin account, an account with higher permissions must be used to create the admin account. i.e. Login with the account with higher previliges to the new account.  
 
         Args:
-            **__PERMISSIONS: Dictionary of the permissions assigned to the admin account.
+            *__PERMISSIONS: Tuple of the permissions assigned to the admin account.
+            If __PERMISSIONS is not specified, then default permissions are used.
             Note: This cannot have a higher access level than the current admin object/account.
         """
-        cursor = self.__CONNECTION.cursor()
         # Default permissions
         PERMISSION = [0, 0, 1, 1, 1, 0, 1, 1, 0, 1] # Default Permissions.
         """{"ROOT": 0,
@@ -156,47 +179,54 @@ class Admin:
             except TypeError:
                 print("Permissions:")
                 PERMISSION.clear()
-                PERMISSIONS__MAIN = list(self.__PERMISSIONS.values())[2::]
-                for permission_name,permission,__PERMISSION in zip(self.__COLUMNS[2::],data,PERMISSIONS__MAIN):
+                for permission_name,permission,__PERMISSION in zip(self.__COLUMNS[2::],data,self.__PERMISSIONS):
                     if permission > __PERMISSION:
                         sys.stderr.write("You do not have permission to give access to {permission}".format(permission=permission_name))
                         return
                     PERMISSION.append(permission)
-        cursor.execute("SELECT UUID()")
-        uuid = cursor.fetchone()[0]
+        self.cursor.execute("SELECT UUID()")
+        uuid = self.cursor.fetchone()[0]
         hash = keccak.new(digest_bits = 512)
         hash.update(password.encode())
         hashed_passwd = hash.hexdigest()
-        cursor.execute("INSERT INTO ADMIN_LOGIN (ID,HASH) VALUES (%s,%s)",(uuid,hashed_passwd))
+        self.cursor.execute("INSERT INTO ADMIN_LOGIN (ID,HASH) VALUES (%s,%s)",(uuid,hashed_passwd))
         self.__CONNECTION.commit()
         # Don't edit this line. Take some time and carefully read it and understand what this does.
         sql="INSERT INTO ADMIN {columns} VALUES ('{UUID}','{name}',%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(columns=str(self.__COLUMNS).replace("'",""),UUID=uuid,name=name)
         # Fires up an request to create a new admin account with the default permissions and the given name.
-        cursor.execute(sql,PERMISSION)
+        self.cursor.execute(sql,PERMISSION)
         self.__CONNECTION.commit()
         print("ID for {user} is {uuid}".format(user=name,uuid=uuid))
     def remove_admin(self, *temp):
         admin_id,reason = temp
-        
+        self.cursor.execute("SELECT * FROM ADMIN WHERE ID='%s'"%admin_id)
+        admin_data = self.cursor.fetchone()
+        admin_perms = admin_data[2::]
+        for permissions in zip(admin_perms,self.__PERMISSIONS):
+            if permissions[0]>permissions[1]:
+                sys.stderr.write("Cannot remove admin account because of lower previliges.")
+                return False
+        self.cursor.execute("DELETE FROM ADMIN WHERE ID='%s'"%admin_id)
+        self.__CONNECTION.commit()       
     def check_status(self,application_id)-> None:
         """Checks the status of application of the given id
         Args:
             application_id(str): Application ID of the application.
         """
-        cursor = self.__CONNECTION.cursor()
-        cursor.execute("SELECT * FROM APPLICATION WHERE APPLICATION_ID= '%s'"%application_id)
-        data = cursor.fetchone()[1::]
+        self.cursor = self.__CONNECTION.cursor()
+        self.cursor.execute("SELECT * FROM APPLICATION WHERE APPLICATION_ID= '%s'"%application_id)
+        data = self.cursor.fetchone()[1::]
         print("Date of creation: ", data[0])
         print("Date of last modification: ", data[1])
         print("Status: ", "Pending" if data[2] is None else "Rejected" if data[2]==0 else "Verified")
         print("Remarks: ", data[3])
         action = input("Action: ")
         if action == "delete":
-            cursor.execute("DELETE FROM APPLICATION WHERE APPLICATION_ID = '%s'"%application_id)
+            self.cursor.execute("DELETE FROM APPLICATION WHERE APPLICATION_ID = '%s'"%application_id)
         elif action == "update":
-            cursor.execute("UPDATE APPLICATION SET VERIFIED = %r WHERE APPLICATION_ID = '%s'"%((bool(input("Accept(1)/Reject(0)"))),application_id))
+            self.cursor.execute("UPDATE APPLICATION SET VERIFIED = %r WHERE APPLICATION_ID = '%s'"%((bool(input("Accept(1)/Reject(0)"))),application_id))
         elif action == "remarks":
-            cursor.execute("UPDATE APPLICATION SET REMARKS = '%s' WHERE APPLICATION_ID = '%s'"%(input("Remarks: "),application_id))
+            self.cursor.execute("UPDATE APPLICATION SET REMARKS = '%s' WHERE APPLICATION_ID = '%s'"%(input("Remarks: "),application_id))
         else:
             print("Unknown action")
         self.__CONNECTION.commit()
@@ -211,5 +241,5 @@ class Admin:
         
         pass
     
-Admin(input("Enter ID: "),input("Enter password for admin account (ROOT): ")).check_status("A")
+Admin(input("Enter ID: "),input("Enter password for admin account (ROOT): ")).remove_admin("841a0cad-4f9a-11ec-b123-90489a3f6f77","Testing")
 #Savings("123",52,60)
