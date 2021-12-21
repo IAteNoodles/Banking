@@ -40,7 +40,7 @@ class Current(Account):
         del self._Account__RATE
         print(self.__dict__)
 
-
+user_connection = connector.connect(name="user_bank", host="localhost", password="USER@BANK").cursor()
 class User:
     def __init__(self, uuid: str, passwd: str):
         self.passwd = passwd
@@ -48,22 +48,32 @@ class User:
         self.__VERIFIED = False
         pass
 
-    def login(self, account_id):
-        pass
+    def login_user(self, password):
+        user_connection.execute("SELECT HASH FROM USER_LOGIN WHERE USER_ID = {ID}".format(ID=self.id))
+        if hash(password) == user_connection.fetchone():
+            self.__VERIFIED = True
+    
+    def get_accounts(self):
+        if not self.__VERIFIED:
+            return "Please login and verify yourself first."
+        user_connection.execute("SELECT ID FROM ACCOUNT WHERE USER_ID = %s" % self.id)
+        return user_connection.fetchall()
 
     def logout(self):
+        self.__VERIFIED = False
         pass
 
-    def forgetpasswd(self):
-        pass
-
-    def get_accounts(self):
+    def forgetpasswd(self, method, token):
+        
         pass
 
     def freeze_account(self):
         pass
 
     def change_password(self, new_password):
+        if not self.__VERIFIED:
+            return "Please login before changing password."
+        user_connection.execute("") #Update password.
         pass
 
 
@@ -98,15 +108,12 @@ class Staff:
                           'MODIFY_ADMIN',
                           'DELETE_APPLICATION',
                           'UNIQUE_ID')
-        hash = keccak.new(digest_bits=512)
+        
         if ID == "ROOT" or ID == "PYTHON_ADMIN":
             self.__ID = "841a0cad-4f9a-11ec-b123-90489a3f6f77" if ID == "ROOT" else "cec4d6d5-4f9a-11ec-b123-90489a3f6f77"
-            hash.update(passwd.encode())
-            self.__PASSWD = hash.hexdigest()  # Hashes the password without salt
         else:
-            hash.update(passwd.encode())
-            self.__PASSWD = hash.hexdigest()  # Hashes the password without salt
             self.__ID = ID
+        self.__PASSWD = hash(passwd)
         self.__CONNECTION = connector.connect(
             user="python", host=host, passwd="Python", database="Bank")
         self.cursor = self.__CONNECTION.cursor()
@@ -242,6 +249,11 @@ class ROOT(Supervisor):
         self.cursor.execute("DELETE FROM ADMIN WHERE ID='%s'" % admin_id)
         self._Staff__CONNECTION.commit()
 
+@staticmethod
+def hash(passwd: str):
+    hash = keccak.new(digest_bits=512)
+    hash.update(passwd.encode())
+    return hash.hexdigest()  # Hashes the password without salt
 
 ROOT(input("ID: "), input("Password: ")).add_staff("1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2","123")
 #Staff(input("Enter ID: "), input("Enter password for admin account (ROOT): ")).remove_admin("841a0cad-4f9a-11ec-b123-90489a3f6f77", "Testing")
