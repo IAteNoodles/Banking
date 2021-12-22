@@ -4,8 +4,8 @@ from mysql import connector
 from Crypto.Hash import keccak
 import sys
 from os.path import exists as file_exists
-
-account_connection = connector.connect(name="account", password="Account", host="localhost").cursor()
+import email_client
+account_connection = connector.connect(user="account", password="Account", host="localhost").cursor()
 class Account:
     def __init__(self, *data):
         self.__ID, self.__RATE, self.__MINIMUM_BALANCE = data
@@ -27,7 +27,7 @@ class Account:
         return True
     
     def change_password(self, new_password):
-        
+        pass
 
 
 class Savings(Account):
@@ -43,7 +43,8 @@ class Current(Account):
         del self._Account__RATE
         print(self.__dict__)
 
-user_connection = connector.connect(name="user_bank", host="localhost", password="USER@BANK").cursor()
+user_connection = connector.connect(user="user_bank", host="localhost", password="USER@BANK").cursor()
+
 class User:
     def __init__(self, uuid: str, passwd: str):
         self.passwd = passwd
@@ -82,11 +83,17 @@ class User:
     def logout(self):
         self.__VERIFIED = False
         pass
-
-    def forgetpasswd(self, method, token):
+    
+    def forgetpasswd(self, id):
+        import secrets
+        from datetime import datetime
+        token = secrets.token_urlsafe()
+        user_connection.execute("INSERT INTO USER_LOGIN (TOKEN) WHERE ID = %s" %id)
+        SQL = """UPDATE USER_LOGIN
+        SET TOKEN = ''
+        WHERE timestamp &gt; DATE_SUB(NOW(), INTERVAL 10 MINUTE)"""
+        user_connection.execute(SQL)
         
-        pass
-
     def freeze_account(self):
         pass
 
@@ -275,6 +282,8 @@ def hash(passwd: str):
     hash.update(passwd.encode())
     return hash.hexdigest()  # Hashes the password without salt
 
+
 ROOT(input("ID: "), input("Password: ")).add_staff("1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2","123")
 #Staff(input("Enter ID: "), input("Enter password for admin account (ROOT): ")).remove_admin("841a0cad-4f9a-11ec-b123-90489a3f6f77", "Testing")
 # Savings("123",52,60)
+
