@@ -5,15 +5,15 @@ from Crypto.Hash import keccak
 import sys
 from os.path import exists as file_exists
 
-
+account_connection = connector.connect(name="account", password="Account", host="localhost").cursor()
 class Account:
     def __init__(self, *data):
         self.__ID, self.__RATE, self.__MINIMUM_BALANCE = data
-        self.__BALANCE = 0
-
+        self.__BALANCE = account_connection.execute()
+        
     def get_balance(self):
-        return self.BALANCE
-
+        return self.__BALANCE
+        
     def withdraw(self, amount):
         try:
             if self.BALANCE-amount < self.__MINIMUM_BALANCE:
@@ -25,13 +25,16 @@ class Account:
     def deposit(self, amount):
         self.BALANCE += amount
         return True
+    
+    def change_password(self, new_password):
+        
 
 
 class Savings(Account):
-    def __init__(self, id: str, *data):
+    def __init__(self, id:str, limit=100):
         super().__init__(id, 0.04, None)
         del self._Account__MINIMUM_BALANCE
-        self.__Times, self.__Limit = data
+        self.__Limit = limit
 
 
 class Current(Account):
@@ -59,6 +62,23 @@ class User:
         user_connection.execute("SELECT ID FROM ACCOUNT WHERE USER_ID = %s" % self.id)
         return user_connection.fetchall()
 
+    def login_account(self, id: str, password: str)-> Account:
+        """Inputs account id and password and checks them against the database
+        Args:
+            id (str): Account ID
+            password (str): Password for the given account."""    
+        if not self.__VERIFIED:
+            return "Please login and verify yourself first."
+        user_connection.execute("SELECT HASH FROM ACCOUNT_LOGIN WHERE ACCOUNT_ID = %s" % id)
+        if hash(password) == user_connection.fetchone():
+            user_connection.execute("SELECT TYPE FROM ACCOUNT WHERE ID = %s" % id)
+            account_type = user_connection.fetchone()[0]
+            if account_type == "Savings":
+                account = Savings(id)
+            else:
+                account = Current(id)
+            return account
+        
     def logout(self):
         self.__VERIFIED = False
         pass
