@@ -100,8 +100,7 @@ class User:
     def change_password(self, new_password):
         if not self.__VERIFIED:
             return "Please login before changing password."
-        user_connection.execute("") #Update password.
-        pass
+        user_connection.execute("UPDATE USER_LOGIN SET HASH = %s WHERE ID = %s" % hash(new_password),self.__ID) #Update password.
 
 
 class Staff:
@@ -238,7 +237,7 @@ class Supervisor(Staff):
         if staff_type is None:
             staff_type = "STAFF"
             PERMISSION = [0, 0, 1, 1, 1, 0, 1, 1, 0, 1]  # Default Permissions.
-        elif staff_type is "SUPERVISOR":
+        elif staff_type == "SUPERVISOR":
             PERMISSION = [0].extend([1]*9)
         else:
             PERMISSION = [1]*10
@@ -276,14 +275,12 @@ class ROOT(Supervisor):
         self.cursor.execute("DELETE FROM ADMIN WHERE ID='%s'" % admin_id)
         self._Staff__CONNECTION.commit()
 
-@staticmethod
+
 def hash(passwd: str):
     hash = keccak.new(digest_bits=512)
     hash.update(passwd.encode())
     return hash.hexdigest()  # Hashes the password without salt
 
-
-ROOT(input("ID: "), input("Password: ")).add_staff("1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2","123")
+#ROOT(input("ID: "), input("Password: ")).add_staff("1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2","123")
 #Staff(input("Enter ID: "), input("Enter password for admin account (ROOT): ")).remove_admin("841a0cad-4f9a-11ec-b123-90489a3f6f77", "Testing")
 # Savings("123",52,60)
-
