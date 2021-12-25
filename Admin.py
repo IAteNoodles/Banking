@@ -1,6 +1,6 @@
 from mysql import connector 
 from tkinter import *
-
+from tkcalendar import Calendar, DateEntry
 from Bank import ROOT, Staff, Supervisor
 
 def welcome(root: Tk):
@@ -22,7 +22,6 @@ def welcome(root: Tk):
         """
         id = ID.get()
         password = Password.get()
-        datasource = database.cursor()
         datasource.execute(r"SELECT TYPE FROM ADMIN WHERE ADMIN_ID = '%s'"%id)
         result = datasource.fetchone()
         if result is None:
@@ -59,12 +58,64 @@ def welcome(root: Tk):
         welcome_frame.destroy()
         Recovery_Frame = Frame(root)
         Recovery_Frame.pack()
-        Application_New = LabelFrame(Recovery_Frame, text="New Submission", fg="blue")
-        Application_Old = LabelFrame(Recovery_Frame, text="Previous submission", fg="green")
+        Application_New = LabelFrame(Recovery_Frame, text="New Application", fg="blue")
+        Application_Old = LabelFrame(Recovery_Frame, text="Previous Application", fg="green")
         Application_New.pack(expand=True, fill='both')
         Application_Old.pack(expand=True, fill='both')  
         
         #This will accept details from the admin.
+        def fill_application():
+            Recovery_Frame.destroy()
+            application = Toplevel(root)
+            application.title("New Application")
+            Form = LabelFrame(application, text="Please fill the following information correctly.")
+            Label(Form, text="Unique ID:", fg="blue").pack()
+            unique_id = Entry(Form)
+            unique_id.pack()
+            unique_id = unique_id.get()
+            Label(Form, text="Name:", fg="blue").pack()
+            admin_name = Entry(Form)
+            admin_name.pack()
+            admin_name = admin_name.get()
+            Label(Form, text="Admin ID:", fg="red").pack()
+            admin_id = Entry(Form)
+            admin_id.pack()
+            admin_id = admin_id.get()
+            Label(Form, text="Phone Number:").pack()
+            admin_p_n = Entry(Form)
+            admin_p_n.pack()
+            admin_p_n = admin_p_n.get()
+            Label(Form, text="Email:").pack()
+            admin_email = Entry(Form)
+            admin_email.pack()
+            admin_email = admin_email.get()
+            types = {"STAFF","MODERATOR"}
+            default = StringVar(Form)
+            default.set("STAFF")
+            admin_type = "STAFF"
+            def set_(selection):
+                admin_type = selection
+                print(admin_type)
+            admin_types = OptionMenu(Form,default,*types, command = set_)
+            Label(Form, text="Admin Type:").pack()
+            admin_types.pack()
+            Label(Form, text="Date Of Birth:").pack()
+            admin_dob = DateEntry(Form)
+            admin_dob.pack()
+            date = admin_dob.get_date()
+            def check():
+                """
+                Matches the data provided to the data in the  database.
+
+                Once the form is submitted, before being send to the database for the verification, the details are matched to the database.
+                If no errors are found, then a ticket is created. The Tracking ID is sent to the provided email address.
+                """
+                datasource.execute("SELECT UNIQUE_ID FROM ADMIN WHERE ADMIN_ID = '%s' AND TYPE = '%s'" % (admin_id, admin_type))
+                print(datasource.fetchall())
+            Button(Form, text="Submit", command=check).pack()
+            Form.pack(expand=True, fill='both')
+        Button(Application_New, text="Fill a new application", command=fill_application).pack()
+        
         
         
     recovery_button = Button(welcome_frame, text="Forgot Password", command=Recover)
@@ -75,8 +126,9 @@ def welcome(root: Tk):
     
     
 if __name__ == "__main__":
-    global database
+    global datasource
     database = connector.connect(user="python",passwd="Python",database="Bank", host="localhost")
+    datasource = database.cursor()
     TK_ROOT = Tk()
     TK_ROOT.title("Admin Panel")
     TK_ROOT.geometry("750x500")

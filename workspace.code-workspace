@@ -1,10 +1,16 @@
 {
 	"folders": [
 		{
-			"path": "."
+			"path": "../../../KV_Tinsukia_CS_Project"
+		},
+		{
+			"path": ".."
 		}
 	],
 	"settings": {
+		"vsintellicode.features.python.deepLearning": "enabled",
+		"git.allowForcePush": true,
+		"git.allowNoVerifyCommit": true,
 		"git.ignoreLimitWarning": true
 	}
 }
