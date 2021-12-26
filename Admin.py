@@ -97,10 +97,7 @@ def welcome(root: Tk):
             types = {"STAFF","MODERATOR"}
             default = StringVar(Form)
             default.set("STAFF")
-            admin_type = "STAFF"
-            def set_(selection):
-                admin_type = selection
-            admin_types = OptionMenu(Form,default,*types, command = set_)
+            admin_types = OptionMenu(Form,default,*types)
             Label(Form, text="Admin Type:").pack()
             admin_types.pack()
             Label(Form, text="Date Of Birth:").pack()
@@ -119,6 +116,7 @@ def welcome(root: Tk):
                 _id = admin_id.get()
                 _p_n = admin_p_n.get()
                 _email = admin_email.get()
+                admin_type = default.get()
                 if "" in locals().values():
                     messagebox.showerror("Error", "All the fields are required.")
                     application.destroy()
@@ -135,7 +133,13 @@ def welcome(root: Tk):
                             _token = secrets.token_urlsafe(16)
                             print(len(_token))
                             datasource.execute("INSERT INTO RECOVERY_TABLE (ID, ADMIN_ID, CREATION_TIME, STATUS) VALUES ('{token}','{id}',NOW(),'PENDING')".format(token=_token,id=_id))
+                            import email_client 
+                            message = "Your account recovery application has been created and is now send for verification. Once it has been approved, you will recieve another email regarding future procedures."
+                            email_client.send_mail(_email,_name[0],"Your Admin Recovery ID",message,"<big>Your Recovery_ID for future reference is: {token}</big>".format(token=_token), "Admin@Recovery{id}".format(id=_id))
+                            
                 messagebox.showinfo("Admin Recovery","If the details you have entered are correct, check your email for the Reference ID.")
+                
+                
             Button(Form, text="Submit", command=check).pack()
             Form.pack(expand=True, fill='both')
         Button(Application_New, text="Fill a new application", command=fill_application).pack()

@@ -28,6 +28,3 @@ def send_mail(email: str, name: str, subject: str, text: str, html: str, custom_
   print (result.status_code)
   print (result.json())
 
-@staticmethod
-def check_email(email: str):
-  pass
