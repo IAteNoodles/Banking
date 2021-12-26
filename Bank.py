@@ -3,7 +3,6 @@ import json
 from mysql import connector
 from Crypto.Hash import keccak
 import sys
-from os.path import exists as file_exists
 import email_client
 account_connection = connector.connect(user="account", password="Account", host="localhost").cursor()
 class Account:
