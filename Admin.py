@@ -82,49 +82,30 @@ def welcome(root: Tk):
             _labelFrame = list() #List of LabelFrame objects for the form.
             _labelNames = ["Unique ID", "First Name", "Middle Name", "Last Name", "Phone Number", "Email Address", "Date of Birth", "Admin ID", "Admin Type"]
             #List of all the Names for the LabelFrame objects.
+            _Entry = list()
+            #List of all the Entry objects for the LabelFrame objects.
             count = 0
             for name in _labelNames:
                 _fg = "blue"
                 if "Admin" in name:
                     _fg = "red"
                 _labelFrame.append(LabelFrame(Form, text=name, fg=_fg, labelanchor="n"))
+                if count == 6:
+                    _Entry.append(DateEntry(_labelFrame[6]))
+                elif count == 8:
+                    types = {"STAFF","MODERATOR"}
+                    default = StringVar(_labelFrame[8])
+                    default.set("STAFF")
+                    _Entry.append(OptionMenu(_labelFrame[8],default,*types))
+                     
+                else:
+                    _Entry.append(Entry(_labelFrame[count]))
+                    
                 _labelFrame[count].pack(expand=True, fill='both')
+                _Entry[count].pack()
                 count += 1
             #This will create LabelFrame and will pack then as well as append.
             del count
-
-            unique_id = Entry(_labelFrame[0])
-            unique_id.pack()
-
-            admin_first_name = Entry(_labelFrame[1])
-            admin_first_name.pack()
-            
-            admin_middle_name = Entry(_labelFrame[2])            
-            admin_middle_name.pack()
-            
-            admin_last_name = Entry(_labelFrame[3])
-            admin_last_name.pack()
-
-            admin_p_n = Entry(_labelFrame[4])
-            admin_p_n.pack()
-
-            admin_email = Entry(_labelFrame[5])
-            admin_email.pack()
-            
-            admin_dob = DateEntry(_labelFrame[6])
-            admin_dob.pack()
-            date = admin_dob.get_date()
-            
-            admin_id = Entry(_labelFrame[7])
-            admin_id.pack()
-            
-            types = {"STAFF","MODERATOR"}
-            default = StringVar(_labelFrame[8])
-            default.set("STAFF")
-            admin_types = OptionMenu(_labelFrame[8],default,*types)
-            admin_types.pack()
-            
-
             def submit():
                 """
                 Matches the data provided to the data in the  database.
@@ -132,39 +113,42 @@ def welcome(root: Tk):
                 Once the form is submitted, before being send to the database for the verification, the details are matched to the database.
                 If no errors are found, then a ticket is created. The Tracking ID is sent to the provided email address.
                 """
-                _uuid = unique_id.get()
-                _name = (admin_first_name.get(), admin_middle_name.get(), admin_last_name.get())
-                _id = admin_id.get()
-                _p_n = admin_p_n.get()
-                _email = admin_email.get()
+                _Iterator = iter(_Entry)
+                _uuid = _Iterator.__next__().get()
+                _name = str(_Iterator.__next__().get())+str(_Iterator.__next__().get())+str(_Iterator.__next__().get())
+                _p_n = _Iterator.__next__().get()
+                _email = _Iterator.__next__().get()
+                _dob = _Iterator.__next__().get_date()
+                _id = _Iterator.__next__().get()
                 admin_type = default.get()
                 if "" in locals().values():
                     messagebox.showerror("Error", "All the fields are required.")
-                    for key in locals().keys():
-                        if "" in locals()[key]:
+                    for count in range(9):
+                        if count == 6 or count == 8:
                             continue
-                        locals()[key].delete(0, END)
-                datasource.execute("SELECT UNIQUE_ID FROM ADMIN WHERE ADMIN_ID = '{id}' AND TYPE = '{admin_type}'".format(id=_id,admin_type=admin_type))
-                test = datasource.fetchone()
-                if _uuid in test:
-                    datasource.execute("SELECT FIRST_NAME, MIDDLE_NAME, LAST_NAME FROM PEOPLE WHERE UNIQUE_ID = '{uuid}'".format(uuid=_uuid))
+                        if not _Entry[count].get() == "":
+                            _Entry[count].delete(0, END)
+                else:
+                    datasource.execute("SELECT UNIQUE_ID FROM ADMIN WHERE ADMIN_ID = '{id}' AND TYPE = '{admin_type}'".format(id=_id,admin_type=admin_type))
                     test = datasource.fetchone()
-                    if _name == test:
-                        datasource.execute("SELECT PHONE_NUMBER, EMAIL FROM PEOPLE WHERE UNIQUE_ID = '{uuid}'".format(uuid=_uuid))
-                        if _p_n and _email in datasource.fetchone():
-                            import secrets
-                            _token = secrets.token_urlsafe(16)
-                            print(len(_token))
-                            datasource.execute("INSERT INTO RECOVERY_TABLE (ID, ADMIN_ID, CREATION_TIME, STATUS) VALUES ('{token}','{id}',NOW(),'PENDING')".format(token=_token,id=_id))
-                            import email_client 
-                            message = "Use this ID for future reference."
-                            htmlPart = """Your account recovery application has been created and is now send for verification. Once it has been approved, you will recieve another email regarding future procedures.
-                            <big>Your Recovery_ID for future reference is: {token}</big>".format(token=_token)"""
-                            email_client.send_mail(_email,_name[0],"Your Admin Recovery ID",message, htmlPart, "Admin@Recovery{id}".format(id=_id))
+                    if _uuid in test:
+                        datasource.execute("SELECT FIRST_NAME, MIDDLE_NAME, LAST_NAME FROM PEOPLE WHERE UNIQUE_ID = '{uuid}'".format(uuid=_uuid))
+                        test = datasource.fetchone()
+                        if _name == test:
+                            datasource.execute("SELECT PHONE_NUMBER, EMAIL FROM PEOPLE WHERE UNIQUE_ID = '{uuid}'".format(uuid=_uuid))
+                            if _p_n and _email in datasource.fetchone():
+                                import secrets
+                                _token = secrets.token_urlsafe(16)
+                                print(len(_token))
+                                datasource.execute("INSERT INTO RECOVERY_TABLE (ID, ADMIN_ID, CREATION_TIME, STATUS) VALUES ('{token}','{id}',NOW(),'PENDING')".format(token=_token,id=_id))
+                                import email_client 
+                                message = "Use this ID for future reference."
+                                htmlPart = """Your account recovery application has been created and is now send for verification. Once it has been approved, you will recieve another email regarding future procedures.
+                                <big>Your Recovery_ID for future reference is: {token}</big>".format(token=_token)"""
+                                email_client.send_mail(_email,_name[0],"Your Admin Recovery ID",message, htmlPart, "Admin@Recovery{id}".format(id=_id))
                             
-                messagebox.showinfo("Admin Recovery","If the details you have entered are correct, check your email for the Reference ID.")
-                
-                
+                    messagebox.showinfo("Admin Recovery","If the details you have entered are correct, check your email for the Reference ID.")
+        
             Button(Form, text="Submit", command=submit).pack()
             Form.pack(expand=True, fill='both')
         Button(Application_New, text="Fill a new application", command=fill_application).pack()
