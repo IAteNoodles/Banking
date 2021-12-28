@@ -9,11 +9,13 @@ from tkinter import messagebox
 def welcome(root: Tk):
     welcome_frame=Frame(root)
     welcome_frame.pack()
-    Label(welcome_frame, text="Admin ID:").pack()
-    ID = Entry(welcome_frame)
-    Label(welcome_frame, text="Password:").pack()
-    Password = Entry(welcome_frame)
-    ID.pack()
+    _id = LabelFrame(welcome_frame, text="Admin ID:", fg="red")
+    _id.pack(expand=True, fill="both")
+    Id = Entry(_id)
+    _passwd = LabelFrame(welcome_frame, text="Password:", fg="red")
+    _passwd.pack(expand=True, fill="both")
+    Password = Entry(_passwd)
+    Id.pack()
     Password.pack()
     def login():
         """
@@ -23,7 +25,7 @@ def welcome(root: Tk):
         then it checks if the hash of the password matches with the hash of the admin in login table. Otherwise it returns
         an Toplevel object with the appropriate error message.
         """
-        id = ID.get()
+        id = Id.get()
         password = Password.get()
         datasource.execute(r"SELECT TYPE FROM ADMIN WHERE ADMIN_ID = '%s'"%id)
         result = datasource.fetchone()
@@ -68,43 +70,62 @@ def welcome(root: Tk):
         
         #This will accept details from the admin.
         def fill_application():
-            welcome_frame.destroy()
+            """
+            Takes the needed user data. 
+            
+            Generates a form that asks the admin for the required details and checks if any box has been left blank.
+            If no, then it sends the details for a server-side verification and if details match, an application is created and the Reference ID is send to the email provided by the admin in the Community Record (People Table)
+            """
             Recovery_Frame.destroy()
-            application = Toplevel(root)
-            application.title("New Application")
-            Form = LabelFrame(application, text="Please fill the following information correctly.")
-            Label(Form, text="Unique ID:", fg="blue").pack()
-            unique_id = Entry(Form)
+            Form = Frame(root)
+            Form.pack(expand=True, fill='both')
+            _labelFrame = list() #List of LabelFrame objects for the form.
+            _labelNames = ["Unique ID", "First Name", "Middle Name", "Last Name", "Phone Number", "Email Address", "Date of Birth", "Admin ID", "Admin Type"]
+            #List of all the Names for the LabelFrame objects.
+            count = 0
+            for name in _labelNames:
+                _fg = "blue"
+                if "Admin" in name:
+                    _fg = "red"
+                _labelFrame.append(LabelFrame(Form, text=name, fg=_fg, labelanchor="n"))
+                _labelFrame[count].pack(expand=True, fill='both')
+                count += 1
+            #This will create LabelFrame and will pack then as well as append.
+            del count
+
+            unique_id = Entry(_labelFrame[0])
             unique_id.pack()
-            Label(Form, text="First Name:", fg="blue").pack()
-            admin_first_name = Entry(Form)
+
+            admin_first_name = Entry(_labelFrame[1])
             admin_first_name.pack()
-            Label(Form, text="Middle Name:", fg="blue").pack()
-            admin_middle_name = Entry(Form)            
+            
+            admin_middle_name = Entry(_labelFrame[2])            
             admin_middle_name.pack()
-            Label(Form, text="Last Name:", fg="blue").pack()
-            admin_last_name = Entry(Form)
+            
+            admin_last_name = Entry(_labelFrame[3])
             admin_last_name.pack()
-            Label(Form, text="Admin ID:", fg="red").pack()
-            admin_id = Entry(Form)
-            admin_id.pack()
-            Label(Form, text="Phone Number:").pack()
-            admin_p_n = Entry(Form)
+
+            admin_p_n = Entry(_labelFrame[4])
             admin_p_n.pack()
-            Label(Form, text="Email:").pack()
-            admin_email = Entry(Form)
+
+            admin_email = Entry(_labelFrame[5])
             admin_email.pack()
-            types = {"STAFF","MODERATOR"}
-            default = StringVar(Form)
-            default.set("STAFF")
-            admin_types = OptionMenu(Form,default,*types)
-            Label(Form, text="Admin Type:").pack()
-            admin_types.pack()
-            Label(Form, text="Date Of Birth:").pack()
-            admin_dob = DateEntry(Form)
+            
+            admin_dob = DateEntry(_labelFrame[6])
             admin_dob.pack()
             date = admin_dob.get_date()
-            def check():
+            
+            admin_id = Entry(_labelFrame[7])
+            admin_id.pack()
+            
+            types = {"STAFF","MODERATOR"}
+            default = StringVar(_labelFrame[8])
+            default.set("STAFF")
+            admin_types = OptionMenu(_labelFrame[8],default,*types)
+            admin_types.pack()
+            
+
+            def submit():
                 """
                 Matches the data provided to the data in the  database.
 
@@ -119,8 +140,10 @@ def welcome(root: Tk):
                 admin_type = default.get()
                 if "" in locals().values():
                     messagebox.showerror("Error", "All the fields are required.")
-                    application.destroy()
-                    fill_application()
+                    for key in locals().keys():
+                        if "" in locals()[key]:
+                            continue
+                        locals()[key].delete(0, END)
                 datasource.execute("SELECT UNIQUE_ID FROM ADMIN WHERE ADMIN_ID = '{id}' AND TYPE = '{admin_type}'".format(id=_id,admin_type=admin_type))
                 test = datasource.fetchone()
                 if _uuid in test:
@@ -134,17 +157,42 @@ def welcome(root: Tk):
                             print(len(_token))
                             datasource.execute("INSERT INTO RECOVERY_TABLE (ID, ADMIN_ID, CREATION_TIME, STATUS) VALUES ('{token}','{id}',NOW(),'PENDING')".format(token=_token,id=_id))
                             import email_client 
-                            message = "Your account recovery application has been created and is now send for verification. Once it has been approved, you will recieve another email regarding future procedures."
-                            email_client.send_mail(_email,_name[0],"Your Admin Recovery ID",message,"<big>Your Recovery_ID for future reference is: {token}</big>".format(token=_token), "Admin@Recovery{id}".format(id=_id))
+                            message = "Use this ID for future reference."
+                            htmlPart = """Your account recovery application has been created and is now send for verification. Once it has been approved, you will recieve another email regarding future procedures.
+                            <big>Your Recovery_ID for future reference is: {token}</big>".format(token=_token)"""
+                            email_client.send_mail(_email,_name[0],"Your Admin Recovery ID",message, htmlPart, "Admin@Recovery{id}".format(id=_id))
                             
                 messagebox.showinfo("Admin Recovery","If the details you have entered are correct, check your email for the Reference ID.")
                 
                 
-            Button(Form, text="Submit", command=check).pack()
+            Button(Form, text="Submit", command=submit).pack()
             Form.pack(expand=True, fill='both')
         Button(Application_New, text="Fill a new application", command=fill_application).pack()
-    recovery_button = Button(welcome_frame, text="Forgot Password", command=Recover)
-    recovery_button.pack()
+        
+        def check_status():
+            Recovery_Frame.destroy()
+            application = Frame(root)
+            application.pack()
+            _form = LabelFrame(application, text="Application Id", fg="green")
+            _form.pack(expand=True, fill='both')
+            app_id = Entry(_form)
+            app_id.pack()
+            def fetch():    
+                _id = app_id.get()
+                datasource.execute("SELECT  STATUS FROM RECOVERY_TABLE WHERE ID = '{id}'".format(id=_id))
+                status = datasource.fetchone()
+                if not status is None:
+                    status = status[0]
+                else:
+                    status = "No application found with the given ID."
+                    if messagebox.askretrycancel("No application found with the given", "Check your email for the Application ID and try again.") == True:
+                        application.destroy()
+                        check_status()
+                    application.destroy()
+                    welcome(root)
+            Button(application, text="Check", command=fetch).pack()
+        Button(Application_Old, text="Check the status of your application", command=check_status).pack()
+    Button(welcome_frame, text="Forgot Password", command=Recover).pack()
     root.mainloop()
     #return admin
     
