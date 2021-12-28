@@ -133,6 +133,7 @@ class Staff:
                           'MODIFY_ADMIN',
                           'DELETE_APPLICATION',
                           'UNIQUE_ID')
+        self.__TYPE = "STAFF"
         
         if ID == "ROOT" or ID == "PYTHON_ADMIN":
             self.__ID = "841a0cad-4f9a-11ec-b123-90489a3f6f77" if ID == "ROOT" else "cec4d6d5-4f9a-11ec-b123-90489a3f6f77"
@@ -173,20 +174,44 @@ class Staff:
         # DELETE_APPLICATION: True,}
         # ----------------------------------------------------Permissions for ROOT-------------------------------------------------
 
-    def check_status(self, application_id) -> str:
-        """Checks the status of application of the given id
+    def track_application(self, application_id) -> list:
+        """
+        Tracks the application with the given application  
+
+        Checks if the application exists in the database and returns the latest details according to the database.
+
         Args:
-            application_id(str): Application ID of the application.
+            application_id (str): Application ID 
+
+        Returns:
+            list: List of the details of the application.
+                The list includes these details in the following format:
+                Date of creation: Datetime
+                Date of last modification: Datatime
+                Status of the application : Pending/Rejected/Verified
+                Remarks: Additional Information if present. May contain the reason for rejection,
+                or comments for the verifiers.
         """
         self.cursor = self.__CONNECTION.cursor()
         self.cursor.execute(
             "SELECT * FROM APPLICATION WHERE APPLICATION_ID= '%s'" % application_id)
-        data = self.cursor.fetchone()[1::]
-        print("Date of creation: ", data[0])
-        print("Date of last modification: ", data[1])
-        print(
-            "Status: ", "Pending" if data[2] is None else "Rejected" if data[2] == 0 else "Verified")
-        print("Remarks: ", data[3])
+        temp = self.cursor.fetchone()
+        if temp is None:
+            return [
+                "Date of creation: None",
+                "Date of last modification: None",
+                "Status: Unknown",
+                "Remarks: No records found for the given application id."
+            ]
+        data = temp[1::]
+        res = list()
+        res.append("Date of creation: %s", data[0])
+        res.append("Date of last modification: %s", data[1])
+        res.append("Status: ", "Pending" if data[2] is None else "Rejected" if data[2] == 0 else "Verified")
+        res.append("Remarks: ", "None" if data[3] is None else data[3])
+        return res
+    
+    def modify_application(self, application_id):
         action = input("Action: ")
         if action == "delete":
             self.cursor.execute(
@@ -215,6 +240,7 @@ class Staff:
 class Supervisor(Staff):
     def __init__(self, ID: str, passwd: str) -> None:
         super().__init__(ID, passwd)
+        self._Staff__TYPE = "SUPERVISOR"
 
     def change_config(self, **__CONFIG) -> bool:
         pass
@@ -245,8 +271,7 @@ class Supervisor(Staff):
         hash = keccak.new(digest_bits=512)
         hash.update(password.encode())
         hashed_passwd = hash.hexdigest()
-        self.cursor.execute(
-            "INSERT INTO ADMIN_LOGIN (ID,HASH) VALUES (%s,%s)", (uuid, hashed_passwd))
+        self.cursor.execute("INSERT INTO ADMIN_LOGIN (ID,HASH) VALUES (%s,%s)", (uuid, hashed_passwd))
         # Don't edit this line. Take some time and carefully read it and understand what this does.
         sql = "INSERT INTO ADMIN {columns} VALUES ('{UUID}','{staff_type}',%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '{id_}')".format(
             columns=str(self._Staff__COLUMNS).replace("'", ""), UUID=uuid, staff_type=staff_type, id_=id__)
@@ -254,24 +279,20 @@ class Supervisor(Staff):
         self.cursor.execute(sql, PERMISSION)
         self._Staff__CONNECTION.commit()
         print("ID is {uuid}".format(uuid=uuid))
+    
+    def modify_admin():
+        pass
 
 
 class ROOT(Supervisor):
     def __init__(self, ID: str, passwd: str) -> None:
         super().__init__(ID, passwd)
-        print(self.__dict__.keys())
+        self._Staff__TYPE = "ROOT"
 
     def remove_admin(self, *misc):
         admin_id, reason = misc
-        self.cursor.execute("SELECT * FROM ADMIN WHERE ID='%s'" % admin_id)
-        admin_data = self.cursor.fetchone()
-        admin_perms = admin_data[2::]
-        for permissions in zip(admin_perms, self.__PERMISSIONS):
-            if permissions[0] > permissions[1]:
-                sys.stderr.write(
-                    "Cannot remove admin account because of lower previliges.")
-                return False
         self.cursor.execute("DELETE FROM ADMIN WHERE ID='%s'" % admin_id)
+        self.cursor.execute("INSERT INTO LOGS (COMMAND, INFO, TRIGGER_TIME) VALUES ('DELETED ADMIN {id}, NOW(), {info}".format(id=admin_id, info=reason))
         self._Staff__CONNECTION.commit()
 
 
@@ -280,6 +301,4 @@ def hash(passwd: str):
     hash.update(passwd.encode())
     return hash.hexdigest()  # Hashes the password without salt
 
-#ROOT(input("ID: "), input("Password: ")).add_staff("1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2","123")
-#Staff(input("Enter ID: "), input("Enter password for admin account (ROOT): ")).remove_admin("841a0cad-4f9a-11ec-b123-90489a3f6f77", "Testing")
-# Savings("123",52,60)
+#ROOT(input("ID: "), input("Password: "))
