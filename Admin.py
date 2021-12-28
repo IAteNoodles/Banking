@@ -30,10 +30,7 @@ def welcome(root: Tk):
         datasource.execute(r"SELECT TYPE FROM ADMIN WHERE ADMIN_ID = '%s'"%id)
         result = datasource.fetchone()
         if result is None:
-                Error = Toplevel(root)
-                Error.geometry("400x20")
-                Error.title("Login failed!!!")
-                Label(Error, text="No Admin exists in the database with the given ID.").pack()
+                messagebox.showerror("Login failed","No admin with the given ID exists")
         else: 
             if result[0] == "STAFF":
                 admin = Staff(id, password)
@@ -42,11 +39,70 @@ def welcome(root: Tk):
             else:
                 admin = ROOT(id, password)   
             if not admin._Staff__VERIFIED:
-                Error = Toplevel(root)
-                Error.geometry("400x20")
-                Error.title("Invalid Credentials!!!")
-                Label(Error, text="THe given credentials are invalid.")  
-    admin: Staff
+                messagebox.showerror("Invalid Credentials!!!", "Either the ID or the password are incorrect. Please try again")
+            else:
+                #Admin has been verified successfully.
+                welcome_frame.destroy()
+                admin_frame = Frame(root)
+                admin_frame.pack()
+                _type = admin._Staff__TYPE
+                color = "green" if _type == "STAFF" else "blue" if _type == "MODERATOR" else "red"
+                _Actions = list()
+                #List of actions that can be performed by the admin. (STAFF)
+                _Actions.append("Check Transaction") 
+                _Actions.append("Track Application")
+                _Actions.append("Modify Application")
+                _Actions.append("Delete Application")
+                def check():
+                    track_frame = Frame(root)
+                    track_frame.pack(expand=True, fill="both")
+                    track_lFrame = LabelFrame(track_frame, text="Application ID")
+                    track_lFrame.pack(expand=True, fill="both")
+                    _id = Entry(track_lFrame)
+                    _id.pack()
+                    def track():
+                        details = iter(admin.track_application(_id.get()))
+                        _details = LabelFrame(track_frame, text="Details for Application ID: %s"% id)
+                        _details.pack(expand=True, fill="both")
+                        _details_date = PanedWindow(details,orient="vertical")
+                        _details_info = PanedWindow(details,orient="vertical")
+                        _dc = Label(_details_date, text=details.__next__())
+                        _dc.pack(side= TOP)
+                        _dlm = Label(_details_date, text=details.__next__())
+                        _dlm.pack(side= TOP)
+                        _details_date.add(_dc)
+                        _details_date.add(_dlm)
+                        _details_date.pack(expand=True, fill=BOTH, sashrelief=RAISED)
+                        _ds = Label(_details_info, text=details.__next__())
+                        _ds.pack(side= TOP)
+                        _dr = Label(_details_info, text=details.__next__())
+                        _dr.pack(side=TOP)
+                        _details_info.add(_ds)
+                        _details_info.add(_dr)
+                        _details_info.pack(expand=True, fill=BOTH, sashrelief=RAISED)
+                        
+                    Button(track_lFrame, text="Track Application", command=track).pack()
+                Button(admin_frame, text="Check Application", command=check).pack()
+                if _type == "MODERATOR":    
+                    #Addtional actions that can be performed by the admin. (MODERATOR)
+                    _Actions.append("Create User")
+                    _Actions.append("Modify User Data")
+                    _Actions.append("Delete User")
+                    _Actions.append("Create Admin")
+                    _Actions.append("Modify Admin Data")
+                    if _type == "ROOT":
+                        #Addtional actions that can be performed by the admin. (ROOT)
+                        _Actions.append("Delete Admin")
+                
+                _LabelActions = list()
+                #List of all the LabelFrames; Parent to the Buttons that can be clicked.
+                for action in _Actions:
+                    _LabelActions.append(LabelFrame(admin_frame, text=action, fg=color))
+                
+                #Packing all the LabelFrames.
+                for lFrames in _LabelActions:
+                    lFrames.pack()                
+                    
     login_button = Button(welcome_frame, text="Login", command=login)       
     login_button.pack()
     def Recover():
@@ -115,7 +171,7 @@ def welcome(root: Tk):
                 """
                 _Iterator = iter(_Entry)
                 _uuid = _Iterator.__next__().get()
-                _name = str(_Iterator.__next__().get())+str(_Iterator.__next__().get())+str(_Iterator.__next__().get())
+                _name = (str(_Iterator.__next__().get()),str(_Iterator.__next__().get()),str(_Iterator.__next__().get()))
                 _p_n = _Iterator.__next__().get()
                 _email = _Iterator.__next__().get()
                 _dob = _Iterator.__next__().get_date()
@@ -129,6 +185,7 @@ def welcome(root: Tk):
                         if not _Entry[count].get() == "":
                             _Entry[count].delete(0, END)
                 else:
+                    datasource.execute("SELECT EXISTS(SELECT * from RECOVERY_TABLE WHERE ADMIN_ID = '%s')" % (_id))
                     datasource.execute("SELECT UNIQUE_ID FROM ADMIN WHERE ADMIN_ID = '{id}' AND TYPE = '{admin_type}'".format(id=_id,admin_type=admin_type))
                     test = datasource.fetchone()
                     if _uuid in test:
@@ -143,8 +200,8 @@ def welcome(root: Tk):
                                 datasource.execute("INSERT INTO RECOVERY_TABLE (ID, ADMIN_ID, CREATION_TIME, STATUS) VALUES ('{token}','{id}',NOW(),'PENDING')".format(token=_token,id=_id))
                                 import email_client 
                                 message = "Use this ID for future reference."
-                                htmlPart = """Your account recovery application has been created and is now send for verification. Once it has been approved, you will recieve another email regarding future procedures.
-                                <big>Your Recovery_ID for future reference is: {token}</big>".format(token=_token)"""
+                                htmlPart = """Your account recovery application has been created and is now send for verification. Once it has been approved, you will recieve another email regarding future procedures.\n
+                                Your Recovery_ID for future reference is: <big>{token}</big>""".format(token=_token)
                                 email_client.send_mail(_email,_name[0],"Your Admin Recovery ID",message, htmlPart, "Admin@Recovery{id}".format(id=_id))
                             
                     messagebox.showinfo("Admin Recovery","If the details you have entered are correct, check your email for the Reference ID.")
@@ -169,16 +226,14 @@ def welcome(root: Tk):
                     status = status[0]
                 else:
                     status = "No application found with the given ID."
-                    if messagebox.askretrycancel("No application found with the given", "Check your email for the Application ID and try again.") == True:
-                        application.destroy()
-                        check_status()
                     application.destroy()
+                    if messagebox.askretrycancel("No application found with the given", "Check your email for the Application ID and try again.") == True:
+                        check_status()
                     welcome(root)
             Button(application, text="Check", command=fetch).pack()
         Button(Application_Old, text="Check the status of your application", command=check_status).pack()
     Button(welcome_frame, text="Forgot Password", command=Recover).pack()
     root.mainloop()
-    #return admin
     
 if __name__ == "__main__":
     global datasource
@@ -187,46 +242,6 @@ if __name__ == "__main__":
     TK_ROOT = Tk()
     TK_ROOT.title("Admin Panel")
     TK_ROOT.geometry("750x500")
+    admin: Staff
     welcome(TK_ROOT)
     database.commit()
-
-
-"""import gi
-
-gi.require_version("Gtk", "3.0")
-gi.require_version('Notify', '0.7')
-
-from gi.repository import Gtk
-from gi.repository import Notify
-
-class MyWindow(Gtk.Window):
-    def __init__(self):
-        Gtk.Window.__init__(self, title="Banking Management System - Admin")
-        Gtk.Window.set_default_size(self, 640, 480)
-        Notify.init("Admin")
-
-        self.box = Gtk.Box(spacing=6)
-        self.add(self.box)
-       
-        Admin_label = Gtk.Label()
-        Admin_label.set_markup(
-            "<big>Admin Login Panel</big>")
-        #Admin_label.set_halign(Gtk.Align.CENTER)
-        #Admin_label.set_valign(Gtk.Align.CENTER)
-        self.box.pack_start(Admin_label, True, True,0)
-        self.button = Gtk.Button(label="Login")
-        self.button.set_halign(Gtk.Align.CENTER)
-        self.button.set_valign(Gtk.Align.CENTER)
-        self.button.connect("clicked", self.on_button_clicked)
-        self.box.pack_start(self.button, True, True, 0)
-
-    def on_button_clicked(self, widget):
-        n = Notify.Notification.new("Admin", "Hello World !!")
-        n.show()
-
-win = MyWindow()
-win.connect("destroy", Gtk.main_quit)
-win.show_all()
-Gtk.main()
-
-"""
