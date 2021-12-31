@@ -53,6 +53,20 @@ def welcome(root: Tk):
                 _Actions.append("Track Application")
                 _Actions.append("Modify Application")
                 _Actions.append("Delete Application")
+                
+                #List of actions that can be performed by the admin. (MODERATOR)
+                if admin.ISSUPERVISOR:
+                    _Actions.append("Create User")
+                    _Actions.append("Modify User Date")
+                    _Actions.append("Delete User")
+                    _Actions.append("Create Admin")
+                    _Actions.append("Modify Admin Date")
+                    
+                #List of actions that can be performed by the admin. (ROOT)
+                    
+                if admin.ISROOT:
+                    _Actions.append("Delete Admin")
+                    
                 def check():
                     track_frame = Frame(root)
                     track_frame.pack(expand=True, fill="both")
@@ -62,38 +76,102 @@ def welcome(root: Tk):
                     _id.pack()
                     def track():
                         details = iter(admin.track_application(_id.get()))
-                        _details = LabelFrame(track_frame, text="Details for Application ID: %s"% id)
+                        _details = LabelFrame(track_frame, text="Details for Application ID: %s"% _id.get(), fg="green")
                         _details.pack(expand=True, fill="both")
-                        _details_date = PanedWindow(details,orient="vertical")
-                        _details_info = PanedWindow(details,orient="vertical")
+                        _details_date = PanedWindow(_details,orient="vertical")
+                        _details_info = PanedWindow(_details,orient="vertical")
                         _dc = Label(_details_date, text=details.__next__())
                         _dc.pack(side= TOP)
                         _dlm = Label(_details_date, text=details.__next__())
                         _dlm.pack(side= TOP)
                         _details_date.add(_dc)
                         _details_date.add(_dlm)
-                        _details_date.pack(expand=True, fill=BOTH, sashrelief=RAISED)
+                        _details_date.pack(expand=True, fill=BOTH)
                         _ds = Label(_details_info, text=details.__next__())
                         _ds.pack(side= TOP)
                         _dr = Label(_details_info, text=details.__next__())
                         _dr.pack(side=TOP)
                         _details_info.add(_ds)
                         _details_info.add(_dr)
-                        _details_info.pack(expand=True, fill=BOTH, sashrelief=RAISED)
+                        _details_info.pack(expand=True, fill=BOTH)
                         
                     Button(track_lFrame, text="Track Application", command=track).pack()
                 Button(admin_frame, text="Check Application", command=check).pack()
-                if _type == "MODERATOR":    
-                    #Addtional actions that can be performed by the admin. (MODERATOR)
-                    _Actions.append("Create User")
-                    _Actions.append("Modify User Data")
-                    _Actions.append("Delete User")
-                    _Actions.append("Create Admin")
-                    _Actions.append("Modify Admin Data")
-                    if _type == "ROOT":
-                        #Addtional actions that can be performed by the admin. (ROOT)
-                        _Actions.append("Delete Admin")
-                
+
+                def check_transaction():
+                    transaction_frame = Frame(root)
+                    transaction_frame.pack(expand=True, fill=BOTH)
+                    tracking_window = Toplevel(root)
+                    tracking_window.geometry("400x400")
+                    def track_id():
+                        tracking_window.title("Track Transaction ID")
+                        lFrame = LabelFrame(tracking_window, text="Transaction ID", fg="green")
+                        lFrame.pack(expand=True, fill=BOTH)
+                        transaction_id = Entry(tracking_window)
+                        transaction_id.pack(expand=True, fill=BOTH)
+                        def track():
+                            Tk.Separator(tracking_window,orient='horizontal').pack()
+                            datasource.execute("SELECT * FROM TRANSACTION WHERE TRANSACTION_ID = {trid}".format(trid=transaction_id.get()))
+                            temp = datasource.fetchone()
+                            if temp is None:
+                                messagebox.showerror("Error", "No transaction with such transaction id was found.")
+                            else:
+                                by, to, amount, time = temp
+                                fromLFrame = LabelFrame(lFrame, text="From", fg="green")
+                                fromLFrame.pack(fill=BOTH, expand=True)
+                                Label(fromLFrame, text=by).pack()
+                                toLFrame = LabelFrame(lFrame, text="To", fg="green")
+                                toLFrame.pack(fill=BOTH, expand=True)
+                                Label(toLFrame, text=to).pack()
+                                exchangeLFrame = LabelFrame(lFrame, text="Amount",fg="green")
+                                exchangeLFrame.pack(fill=BOTH,expand=True)
+                                Label(exchangeLFrame, text=amount).pack()
+                                timelFrame = LabelFrame(lFrame, text="Time", fg="green")
+                                timelFrame.pack(fill=BOTH, expand=True)
+                                Label(timelFrame, text=time).pack()
+                            
+                        Button(tracking_window, text="Track", command=track, fg="green")
+                    
+                    def track_account():
+                        tracking_window.title("Track Account")
+                        lFrame = LabelFrame(tracking_window, text="Account ID:", fg="blue")
+                        lFrame.pack(fill=BOTH, expand=True)
+                        account_id = Entry(tracking_window)
+                        account_id.pack(expand=True, fill=BOTH)
+                        datasource.execute("SELECT * FROM TRANSACTION WHERE BY = '{acc_id}' OR TO = '{acc_id}'".format(acc_id = account_id.get()))
+                        temp = datasource.fetchall()
+                        if temp is None:
+                            messagebox.showwarning("No records found.", "Either no transaction with the given account have taken place or the account id is invalid. Please check and try again.")
+                        else:
+                            tran_no = len(temp)
+                            global first_tran, last_tran
+                            last_tran = 25
+                            first_tran = 0
+                            def show():
+                                global last_tran, first_tran
+                                for count in range(first_tran,last_tran):
+                                    id, by, to, amount, time = temp[count]
+                                    if by == account_id.get():
+                                        statement = "{sender} sent {money} to {to}".format(sender = by, money =amount, to = to) 
+                                    else:
+                                        statement = "{to} received {money} from {sender}".format(sender = by, money =amount, to = to)
+                                    tLFrame = LabelFrame(tracking_window, text = "Transaction ID : %s" % id, fg = "blue")
+                                    tLFrame.pack(fill=BOTH, expand=True)
+                                    Label(tLFrame, text = statement).pack()
+                                    Label(tLFrame, text="Time : %s" % time).pack()
+                                    Tk.Separator(tracking_window,orient='horizontal').pack()
+                                    if first_tran >= tran_no:
+                                        return
+                                
+                                first_tran = last_tran+1
+                                last_tran += 25
+                                    
+                            recordFrame = LabelFrame(tracking_window, text= "Displaying records: {first_tran} out of {tran_no}".format(first_tran=first_tran,tran_no=tran_no))
+                            recordFrame.pack(fill=BOTH, expand=True)
+                            if first_tran < tran_no:
+                                Button(tracking_window, text="Next", command = show, fg="green").pack()
+                    Button(transaction_frame, text="Details of Transaction with an Transaction ID", command=track_id).pack()
+                    Button(transaction_frame, text="Latest transaction of an account", command=track_account).pack()
                 _LabelActions = list()
                 #List of all the LabelFrames; Parent to the Buttons that can be clicked.
                 for action in _Actions:
