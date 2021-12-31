@@ -1,9 +1,7 @@
 from json import dump as json_dump
-import json
+from typing import Final, final
 from mysql import connector
 from Crypto.Hash import keccak
-import sys
-import email_client
 account_connection = connector.connect(user="account", password="Account", host="localhost").cursor()
 class Account:
     def __init__(self, *data):
@@ -205,10 +203,12 @@ class Staff:
             ]
         data = temp[1::]
         res = list()
-        res.append("Date of creation: %s", data[0])
-        res.append("Date of last modification: %s", data[1])
-        res.append("Status: ", "Pending" if data[2] is None else "Rejected" if data[2] == 0 else "Verified")
-        res.append("Remarks: ", "None" if data[3] is None else data[3])
+        res.append("Date of creation: {creationdate}".format(creationdate=data[0]))
+        res.append("Date of last modification: {lastdate}".format(lastdate=data[1]))
+        status = "Pending" if data[2] is None else ("Rejected" if data[2] == 0 else "Verified")
+        res.append("Status: {status}".format(status=status))
+        remarks = "None" if data[3] is None else data[3]
+        res.append("Remarks: {remarks}".format(remarks=remarks))
         return res
     
     def modify_application(self, application_id):
@@ -241,7 +241,8 @@ class Supervisor(Staff):
     def __init__(self, ID: str, passwd: str) -> None:
         super().__init__(ID, passwd)
         self._Staff__TYPE = "SUPERVISOR"
-
+        self.ISSUPERVISOR: Final = True
+        
     def change_config(self, **__CONFIG) -> bool:
         pass
 
@@ -288,6 +289,8 @@ class ROOT(Supervisor):
     def __init__(self, ID: str, passwd: str) -> None:
         super().__init__(ID, passwd)
         self._Staff__TYPE = "ROOT"
+        self.ISROOT: Final = True
+        print(self.__dict__.keys())
 
     def remove_admin(self, *misc):
         admin_id, reason = misc
@@ -301,4 +304,4 @@ def hash(passwd: str):
     hash.update(passwd.encode())
     return hash.hexdigest()  # Hashes the password without salt
 
-#ROOT(input("ID: "), input("Password: "))
+#ROOT(input("ID: "), input("Password: ")).create_applications
