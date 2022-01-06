@@ -1,12 +1,13 @@
 from json import dump as json_dump
-from typing import Final, final
+from typing import Final, List, final
 from mysql import connector
 from Crypto.Hash import keccak
 account_connection = connector.connect(user="account", password="Account", host="localhost").cursor()
 class Account:
-    def __init__(self, *data):
-        self.__ID, self.__RATE, self.__MINIMUM_BALANCE = data
-        self.__BALANCE = account_connection.execute()
+    def __init__(self, id: str):
+        self.__ID = id
+        account_connection.execute("SELECT BALANACE FROM ACCOUNT WHERE ID = %s" % id)
+        self.__BALANCE = account_connection.fetchone()[0]
         
     def get_balance(self):
         return self.__BALANCE
@@ -23,21 +24,42 @@ class Account:
         self.BALANCE += amount
         return True
     
+    def fetch_transaction(self, limit = 50) -> List:
+        """
+        Acceps the limit of transactions and returns a list of transactions.
+        The default limit is 50
+        
+        Args:
+            limit (int): the maximum number of transactions
+        
+        Returns:
+            A list of transactions with the following attributes.
+            Transaction ID: Transaction ID, this can be used to identify transactions.
+            By: Sender.
+            To: Recipient.
+            Amount: Money involved in the transaction.
+            Transaction Time: Time of the transaction.
+            
+        """
+        account_connection.execute("SELECT * FROM TRANSACTION WHERE BY = '{acc_id}' OR TO = '{acc_id}'".format(acc_id = self.__ID))
+        transactions = account_connection.fetch(limit)
+        return transactions
+    
     def change_password(self, new_password):
         pass
 
 
 class Savings(Account):
     def __init__(self, id:str, limit=100):
-        super().__init__(id, 0.04, None)
-        del self._Account__MINIMUM_BALANCE
+        super().__init__(id)
+        self.LIMIT = limit
         self.__Limit = limit
 
 
 class Current(Account):
-    def __init__(self, id: str):
-        super().__init__(id, None, 100000)
-        del self._Account__RATE
+    def __init__(self, id: str, min_balance=1000000):
+        super().__init__(id)
+        self.__MINIMUM_BALANCE = min_balance
         print(self.__dict__)
 
 user_connection = connector.connect(user="user_bank", host="localhost", password="USER@BANK").cursor()
@@ -47,13 +69,10 @@ class User:
         self.passwd = passwd
         self.id = uuid
         self.__VERIFIED = False
-        pass
-
-    def login_user(self, password):
-        user_connection.execute("SELECT HASH FROM USER_LOGIN WHERE USER_ID = {ID}".format(ID=self.id))
-        if hash(password) == user_connection.fetchone():
+        user_connection.execute("SELECT SECURITY_NUMBER FROM PEOPLE WHERE UNIQUE_ID = {ID}".format(ID=self.id))
+        if hash(passwd) == user_connection.fetchone():
             self.__VERIFIED = True
-    
+
     def get_accounts(self):
         if not self.__VERIFIED:
             return "Please login and verify yourself first."
@@ -305,3 +324,4 @@ def hash(passwd: str):
     return hash.hexdigest()  # Hashes the password without salt
 
 #ROOT(input("ID: "), input("Password: ")).create_applications
+print(hash("Abhijit"))
