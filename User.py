@@ -1,7 +1,6 @@
 import tkinter as Tk
 from tkinter import *
 from tkinter import messagebox
-
 from mysql import connector
 
 from Bank import Account, Current, Savings, User
@@ -59,7 +58,14 @@ def functions(account_id: str, account_type: int):
     def fetch_transaction():
         temp = account.fetch_transaction(25)
         if len(temp) == 0:
-            pass
+            messagebox.showerror("Error", "No transaction found for this account")
+        else:
+            transaction_Window = Toplevel(root)
+            transaction_Window.title("Transaction History")
+            import tktable
+            
+            
+            
     Button(main_frame, text="Check Balance",command=fetch_balance).pack()
     Button(main_frame, text="Deposit", command=deposit).pack()
     Button(main_frame, text="Withdraw", command=withdraw).pack()
