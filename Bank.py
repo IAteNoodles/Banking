@@ -1,8 +1,9 @@
 from json import dump as json_dump
 from typing import Final, List, final
-from mysql import connector
+import mariadb
 from Crypto.Hash import keccak
-account_connection = connector.connect(user="account", password="Account", host="localhost").cursor()
+account_source = mariadb.connect(user="Account", password="Account@Bank", host="localhost", database="Bank")
+account_connection = account_source.cursor()
 class Account:
     def __init__(self, id: str):
         self.__ID = id
@@ -21,11 +22,12 @@ class Account:
             return True
 
     def deposit(self, amount):
+
         self.BALANCE += amount
         return True
     
-    def fetch_transaction(self, limit = 50) -> List:
-        """
+    def fetch_transaction(self, limit = 50):
+        '''
         Acceps the limit of transactions and returns a list of transactions.
         The default limit is 50
         
@@ -39,8 +41,7 @@ class Account:
             To: Recipient.
             Amount: Money involved in the transaction.
             Transaction Time: Time of the transaction.
-            
-        """
+        '''
         account_connection.execute("SELECT * FROM TRANSACTION WHERE BY = '{acc_id}' OR TO = '{acc_id}'".format(acc_id = self.__ID))
         transactions = account_connection.fetch(limit)
         return transactions
@@ -62,7 +63,8 @@ class Current(Account):
         self.__MINIMUM_BALANCE = min_balance
         print(self.__dict__)
 
-user_connection = connector.connect(user="user_bank", host="localhost", password="USER@BANK").cursor()
+user_source = mariadb.connect(user="User", host="localhost", password="User@Bank")
+user_connection = user_source.cursor()
 
 class User:
     def __init__(self, uuid: str, passwd: str):
@@ -79,7 +81,7 @@ class User:
         user_connection.execute("SELECT ID FROM ACCOUNT WHERE USER_ID = %s" % self.id)
         return user_connection.fetchall()
 
-    def login_account(self, id: str, password: str)-> Account:
+    def login_account(self, id: str, password: str):
         """Inputs account id and password and checks them against the database
         Args:
             id (str): Account ID
@@ -120,78 +122,61 @@ class User:
 
 
 class Staff:
-    """A class that encapsulates the admin type user. 
-    Provides root level modification to the database, and other admin features."""
+    """
+    A class that encapsulates the admin type user. 
+    Provides root level modification to the database, and other admin features.
+    """
 
-    def __init__(self, ID: str, passwd: str, host="localhost") -> None:
+    def __init__(self, ID: str, passwd: str, nick=False,host="localhost"):
         """
         Accepts the credentials and creates an Admin object after loging in.
 
         Takes the credentials from the constructor and checks if there is a record with the same ID in the database.
-        If no record exists, it returns error message else returns a confirmation message.
-        Changes the value of __VERIFIED to True if matched.
-
-        Args:
-            ID (str): Identification number of the admin object.
-            passwd (str): Password of the admin object.
-            host (str): Hostname of the database server.
-        """
-        self.__VERIFIED = False
-        self.__COLUMNS = ('ADMIN_ID',
-                          'TYPE',
-                          'ROOT',
-                          'CREATE_ADMIN',
-                          'CHECK_TRANSACTION',
-                          'CHECK_APPLICATION',
-                          'MODIFY_APPLICATION',
-                          'DELETE_ADMIN',
-                          'DELETE_USER',
-                          'MODIFY_USER_DATA',
-                          'MODIFY_ADMIN',
-                          'DELETE_APPLICATION',
-                          'UNIQUE_ID')
-        self.__TYPE = "STAFF"
+        If no record exists, it returns error message else returns a confirmation message.\n
+        Changes the value of __VERIFIED to True if matched, else updates the __ERROR with the appropriate error message.
         
-        if ID == "ROOT" or ID == "PYTHON_ADMIN":
-            self.__ID = "841a0cad-4f9a-11ec-b123-90489a3f6f77" if ID == "ROOT" else "cec4d6d5-4f9a-11ec-b123-90489a3f6f77"
-        else:
-            self.__ID = ID
+        Args:
+            ID (str): Identification number of the admin object. (Optional: Can be used as a nickname to ease authentication)
+            passwd (str): Password of the admin object.
+            nick (bool): Tells the function to treat the ID as a nickname instead. (Default is False)
+            host (str): Hostname of the database server.
+        
+        """
+        self.__ERROR = {"Message": None,
+                        "Nickname": nick}
+        
+        self.__VERIFIED = False
+        self.__COLUMNS = ('ID',
+                    'Admin ID',
+                    'Type',
+                    'Nickname')
+                          
+        TYPE_DATA = {"Staff":1,
+                     "Supervisor":2,
+                     "Root":3} #This defines the hierarchy of each type of admin.
+        
+        verification_method = "Nickname" if nick else "ID"
+
         self.__PASSWD = hash(passwd)
-        self.__CONNECTION = connector.connect(
-            user="python", host=host, passwd="Python", database="Bank")
+        
+        # We connect to the database with the set password.
+        self.__CONNECTION = mariadb.connect(user="Admin", host=host, passwd="Admin@Bank", database="Bank")
         self.cursor = self.__CONNECTION.cursor()
-        self.cursor.execute(
-            r"select * from ADMIN_LOGIN WHERE ID = '%s'" % self.__ID)
+        
+        # We look for a match in the records and fetch the corresponding hashed_passwd.
+        self.cursor.execute("SELECT * from ADMIN_LOGIN WHERE %s = '%s'" % (verification_method,self.__ID))
         hashed_passwd = self.cursor.fetchone()[1]
+        if hashed_passwd is None:
+            self.__ERROR["Message"] = "No record found."
+        # We check if the hashed_passwd matches with the hash of the given password.
         if hashed_passwd == self.__PASSWD:
-            print("Successfully logged in!!!")
             self.__VERIFIED = True
         else:
-            print("Failed to log in")
-            return "Invalid Credentials!!!"
-        self.__DETAILS = dict()
-        # Fetches the permissions from the database and stores it.
-        print(self.__ID)
-        self.cursor.execute(
-            "SELECT * FROM ADMIN WHERE ADMIN_ID = '{ID}'".format(ID=self.__ID))
-        self.__DETAILS = self.cursor.fetchone()
-        print(self.__DETAILS)
-        #self.__PERMISSIONS = list(self.__DETAILS.values())[2::]
-        # ----------------------------------------------------Permissions for ROOT-------------------------------------------------
-        # {ROOT: True,
-        # CREATE_ADMIN: True,
-        # CHECK_TRANSACTION: True,
-        # CHECK_APPLICATION: True,
-        # MODIFY_APPLICATION: True,
-        # DELETE_ADMIN: True,
-        # DELETE_APPLICATION: True,
-        # DELETE_USER: True,
-        # MODIFY_USER_DATA: True,
-        # MODIFY_ADMIN: True,
-        # DELETE_APPLICATION: True,}
-        # ----------------------------------------------------Permissions for ROOT-------------------------------------------------
+            self.__ERROR["Message"] = "Invalid credentials"
 
-    def track_application(self, application_id) -> list:
+        
+
+    def track_application(self, application_id):
         """
         Tracks the application with the given application  
 
@@ -209,7 +194,7 @@ class Staff:
                 Remarks: Additional Information if present. May contain the reason for rejection,
                 or comments for the verifiers.
         """
-        self.cursor = self.__CONNECTION.cursor()
+        #TODO: Implement this with the changed table.
         self.cursor.execute(
             "SELECT * FROM APPLICATION WHERE APPLICATION_ID= '%s'" % application_id)
         temp = self.cursor.fetchone()
@@ -245,27 +230,27 @@ class Staff:
             print("Unknown action")
         self.__CONNECTION.commit()
 
-    def create_applications(self, details) -> str:
+    def create_applications(self, details):
         pass
 
-    def delete_account(self, account_id) -> str:
+    def delete_account(self, account_id):
         pass
 
-    def remove_user(self, **details) -> str:
+    def remove_user(self, **details):
 
         pass
 
 
 class Supervisor(Staff):
-    def __init__(self, ID: str, passwd: str) -> None:
+    def __init__(self, ID: str, passwd: str):
         super().__init__(ID, passwd)
         self._Staff__TYPE = "SUPERVISOR"
         self.ISSUPERVISOR: Final = True
         
-    def change_config(self, **__CONFIG) -> bool:
+    def change_config(self, **__CONFIG):
         pass
 
-    def add_staff(self, id__, password, staff_type=None) -> bool:
+    def add_staff(self, id__, password, staff_type=None):
         """
         Adds an admin account to the database.
 
@@ -305,7 +290,7 @@ class Supervisor(Staff):
 
 
 class ROOT(Supervisor):
-    def __init__(self, ID: str, passwd: str) -> None:
+    def __init__(self, ID: str, passwd: str):
         super().__init__(ID, passwd)
         self._Staff__TYPE = "ROOT"
         self.ISROOT: Final = True
