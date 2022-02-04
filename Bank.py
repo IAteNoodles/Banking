@@ -215,8 +215,36 @@ class Staff:
         res.append("Remarks: {remarks}".format(remarks=remarks))
         return res
     
-    def modify_application(self, application_id):
-        action = input("Action: ")
+    def modify_application(self, application_id, action):
+        """
+        
+        Takes a application id along with a list of actions along with it.
+        The application with the given id is then modified accordingly.
+
+        Args:
+        
+            application_id (str): The application id of the application to modify.
+            actions (dict): The list of actions to apply to the application.
+            
+        Note:
+        
+        The format of actions is as follows:
+        
+            Type defines what kind of action will be performed.
+            
+            0: Delete the application from the database, and execute the application. (Accept)
+            1: Delete the application from database. (Reject)
+            2: Add remarks to the application.
+            
+            The default action is 0, which will delete the application from the database after executing the application.
+            
+            type: 0
+            
+            Remarks are the comments in the application which may be added to aid the process and must be present if type is 2.
+               
+        Returns:
+            bool: True if the operation was successful else False.         
+        """
         if action == "delete":
             self.cursor.execute(
                 "DELETE FROM APPLICATION WHERE APPLICATION_ID = '%s'" % application_id)
