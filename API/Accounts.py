@@ -1,7 +1,7 @@
 #A class which can be used to access account apis.
 #This class is filled with only the base apis. Other features maybe added in future.
 import mariadb
-connection = mariadb.connect(account='Account', password='Account@Bank', database='Banking', charset='utf8mb4')
+connection = mariadb.connect(user='Account', password='Account@Bank', database='Banking', charset='utf8mb4')
 class Account:
     def __init__(self, account_id, password):
         from Hashing import sha3

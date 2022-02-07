@@ -23,3 +23,5 @@ def sha3(data: str):
     hash = keccak.new(digest_bits=512)
     hash.update(data.encode())
     return hash.hexdigest()  # Hashes the password without salt
+
+print(sha3("StaffHere@BankingAPI"))

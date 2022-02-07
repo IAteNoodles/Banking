@@ -1,7 +1,7 @@
 #This class is used to access the staff apis.
 #This class is filled with only the base apis. Other features maybe added in future.
 import mariadb
-connection = mariadb.connect(user="Admin", passwd="Admin@Bank", database="Banking")
+connection = mariadb.connect(user="Admin", passwd="Admin@Bank", database="Banking", charset="utf8mb4")
 class Staff:
     
     def __init__(self, staff_id, password):
@@ -25,19 +25,59 @@ class Staff:
         connection.execute("INSERT INTO User (ID, Password) VALUES (%s, %s)", (user_id, hashed_passwd))
         connection.commit()
         
-    def add_account(self, account_id, user_id):
+    def change_application(self, application_id):
         """
         
-        Inserts an account into the account table and links it to the user.
+        Commits changes to the application.
         
         Args:
-            account_id: ID of the account
-            user_id: ID of the user (Owner of the account)
+            application_id(int): The application ID.
+            
+        Returns:
+            True if the actions were executed successfully, else False.
         """
-        connection.execute("INSERT INTO Accounts (ID, User_ID) VALUES (%s, %s)", (account_id, user_id))
-        connection.commit()
         
-
+        #Fetches the application from the database and prints the details.
+        connection.execute("SELECT * FROM Account_Application WHERE ID = %")
+        details=connection.fetchone()
+        
+        #Print the details of the application. 1st column is the user_id, 2nd is the account_id, 3rd is the hash of the password, 4th is the time of the creation.
+        print("Application ID: " + application_id)
+        print("User ID: " + str(details[0]))
+        print("Account ID: " + str(details[1]))
+        print("Created at: " + str(details[3]))
+        
+        #Asks if the staff wants to accept the application.
+        try:
+            choice = bool(input("Accept application? (y/n): "))
+        except ValueError:
+            print("Invalid input")
+            return False
+        
+        def delete_application():
+            """
+            Deletes the application.
+            """
+            connection.execute("DELETE FROM Account_Application WHERE ID = %s", (application_id))
+            connection.commit()
+            
+        if choice:
+            #If yes, the application is accepted.
+            #Creates a new account in the Accounts table with the hashed password
+            print("Accepting application...")
+            print("Creating new account...")
+            connection.execute("INSERT INTO Accounts (ID, Password) VALUES (%s, %s)", (details[1], details[2]))
+            print("Account created.")
+            delete_application()
+            print("Deleting application...")
+            print("Application deleted.")
+            return True
+        else:
+            #If no, the application is rejected.
+            delete_application()
+            print("Rejecting application...")
+            print("Application deleted.")
+            return True
         
 class Manager(Staff):
     def __init__(self, user_id, password):
