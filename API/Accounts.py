@@ -1,7 +1,8 @@
 #A class which can be used to access account apis.
 #This class is filled with only the base apis. Other features maybe added in future.
 import mariadb
-connection = mariadb.connect(user='Account', password='Account@Bank', database='Banking', charset='utf8mb4')
+connector = mariadb.connect(user='Account', password='Account@Bank', database='Banking')
+connection = connector.cursor()
 class Account:
     def __init__(self, account_id, password):
         from Hashing import sha3
@@ -57,7 +58,7 @@ class Account:
         
         #Commits the transaction to the database.
         connection.execute("UPDATE Accounts SET Balance = %s WHERE ID = %s", (self.balance, self.account_id))
-        connection.commit()
+        connector.commit()
         return True, "New balance: %s" % self.balance
     
 #---------------------------------------------------------------- END OF CLASS -----------------------------------------------------------------#

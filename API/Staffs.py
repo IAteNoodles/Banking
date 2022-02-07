@@ -1,7 +1,8 @@
 #This class is used to access the staff apis.
 #This class is filled with only the base apis. Other features maybe added in future.
 import mariadb
-connection = mariadb.connect(user="Admin", passwd="Admin@Bank", database="Banking", charset="utf8mb4")
+connector = mariadb.connect(user="Admin", passwd="Admin@Bank", database="Banking")
+connection = connector.curson()
 class Staff:
     
     def __init__(self, staff_id, password):
@@ -14,7 +15,6 @@ class Staff:
         
         self.username = staff_id
         self.password = password
-        self.type = 0
         #Fetches the staff type from the database.
         connection.execute("SELECT `Type` FROM Staff WHERE ID = %s", (staff_id))
         
@@ -23,7 +23,7 @@ class Staff:
         Inserts a user into the user table with the hashed password.
         """
         connection.execute("INSERT INTO User (ID, Password) VALUES (%s, %s)", (user_id, hashed_passwd))
-        connection.commit()
+        connector.commit()
         
     def change_application(self, application_id):
         """
@@ -41,11 +41,11 @@ class Staff:
         connection.execute("SELECT * FROM Account_Application WHERE ID = %")
         details=connection.fetchone()
         
-        #Print the details of the application. 1st column is the user_id, 2nd is the account_id, 3rd is the hash of the password, 4th is the time of the creation.
+        #Print the details of the application. 1st column is the application_id, 2nd is the user_id, 3rd is the account_id, 4th is the hash of the password, 5th is the time of the creation.
         print("Application ID: " + application_id)
-        print("User ID: " + str(details[0]))
-        print("Account ID: " + str(details[1]))
-        print("Created at: " + str(details[3]))
+        print("User ID: " + str(details[1]))
+        print("Account ID: " + str(details[2]))
+        print("Created at: " + str(details[4]))
         
         #Asks if the staff wants to accept the application.
         try:
@@ -59,7 +59,7 @@ class Staff:
             Deletes the application.
             """
             connection.execute("DELETE FROM Account_Application WHERE ID = %s", (application_id))
-            connection.commit()
+            connector.commit()
             
         if choice:
             #If yes, the application is accepted.
@@ -97,7 +97,7 @@ class Manager(Staff):
             return "You are not authorized to add this staff"
         
         connection.execute("INSERT INTO Staff (ID, Password, `Type`) VALUES (%s, %s, %s)", (staff_id, hashed_passwd, staff_type))
-        connection.commit()
+        connector.commit()
         
 class Admin(Manager):
     def __init__(self, user_id, password):
@@ -112,4 +112,4 @@ class Admin(Manager):
             staff_id: ID of the staff.
         """
         connection.execute("DELETE FROM staff WHERE ID = %s", (staff_id))
-        connection.commit()
+        connector.commit()

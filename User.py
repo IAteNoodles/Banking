@@ -41,7 +41,7 @@ def functions(account_id: str, account_type: int):
             return
         account.__BALANCE += amount
         datasource.execute("UPDATE ACCOUNT SET BALANCE = %s WHERE ID = '%s'" % (account.__BALANCE, account.__ID))
-        connection.commit()
+        connector.commit()
         
     #This withdraws money into the account and update the _account_data key.
     def withdraw():
@@ -53,7 +53,7 @@ def functions(account_id: str, account_type: int):
             return
         account.__BALANCE -= amount
         datasource.execute("UPDATE ACCOUNT SET BALANCE = %s WHERE ID = '%s'"%account.__BALANCE, account.__ID)
-        connection.commit()
+        connector.commit()
         
     def fetch_transaction():
         temp = account.fetch_transaction(25)
@@ -179,4 +179,4 @@ connection = connector.connect(user="user_bank", host="localhost", password="USE
 global datasource
 datasource = connection.cursor()
 welcome()
-connection.commit()
+connector.commit()

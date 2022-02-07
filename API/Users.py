@@ -3,7 +3,8 @@
 import mariadb
 
 from Banking_.API.Accounts import Account
-connection = mariadb.connect(user='User', password='User@Bank', database='Banking', charset='utf8mb4')
+connector = mariadb.connect(user='User', password='User@Bank', database='Banking')
+connection = connector.cursor()
 class User:
     def __init__(self, user_id, password):
         from Hashing import sha3
@@ -71,7 +72,7 @@ class User:
         from Hashing import sha3
         password = sha3(password)
         account_id = self.user_id + "-" + str(len(self.accounts)+1)
-        connection.execute("INSERT INTO Account_Applications (User_ID, ID, Password, CreationTime) VALUES (%s, %s, %s, NOW())", (self.user_id, account_id, password))
-        connection.commit()
+        connection.execute("INSERT INTO Account_Applications (ID, User_ID, Password, CreationTime) VALUES (%s, %s, %s, NOW())", (account_id, self.user_id, password))
+        connector.commit()
         print("Account application sent to the bank for approval.\nYour account number is: " + account_id)
         
