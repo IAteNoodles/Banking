@@ -1,4 +1,4 @@
-def sha256(data: str) -> str:
+def sha256(data: str):
     """
     Abhijit -> 1bea44bfa1f9e9dc7c6c1bafcb680429b7167a0433255cb53403034514a2331b
     `echo -n "Abhijit" | sha256sum`
